@@ -26,10 +26,10 @@ def main():
         modality, model_path, model_conf, face_track=True, device=DEVICE
     )
     uncorrected_transcript = pipeline(VIDEO_PATH)
-    print(uncorrected_transcript)
+    print("Uncorrected transcript:", uncorrected_transcript)
 
     corrected_transcript = produce_transcript(video_context, uncorrected_transcript)
-    print(corrected_transcript)
+    print("Corrected transcript:", corrected_transcript)
 
 if __name__ == "__main__":
     main()
