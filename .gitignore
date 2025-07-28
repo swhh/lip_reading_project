@@ -1,0 +1,8 @@
+poetry.lock
+*.mp4
+*.pth
+__pycache__
+*.json
+
+
+
