@@ -1,9 +1,11 @@
 import os
+import math
 
 import cv2
+from moviepy import VideoFileClip
 
 
-SAMPLE_VIDEO = "content/videos/sample.mp4"
+SAMPLE_VIDEO = "content/videos/new_sample.mp4"
 
 
 def preprocess_video(
@@ -78,8 +80,58 @@ def preprocess_video(
     return output_path
 
 
-# --- Example Usage ---
+def split_video(video_path, segment_length_sec=15, output_dir="content/videos/video_segments"):
+    """
+    Splits a video into segments of a specified length.
+
+    Args:
+        video_path (str): Path to the input video file.
+        segment_length_sec (int): The desired length of each segment in seconds.
+        output_dir (str): The directory to save the video segments.
+
+    Returns:
+        list: A sorted list of file paths to the created video segments.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    print(f"Loading video: {video_path}")
+    clip = VideoFileClip(video_path)
+    duration = clip.duration
+    num_segments = math.ceil(duration / segment_length_sec)
+    
+    print(f"Video duration: {duration:.2f}s. Splitting into {num_segments} segments.")
+
+    segment_paths = []
+    for i in range(num_segments):
+        start_time = i * segment_length_sec
+        end_time = min((i + 1) * segment_length_sec, duration)
+        
+        # Define the output filename
+        base_name = os.path.splitext(os.path.basename(video_path))[0]
+        output_path = os.path.join(output_dir, f"{base_name}_segment_{i+1:03d}.mp4")
+        
+        print(f"  Creating segment {i+1}: from {start_time:.2f}s to {end_time:.2f}s -> {output_path}")
+        
+        # Create subclip and write to file
+        subclip = clip.subclipped(start_time, end_time)
+        subclip.write_videofile(output_path)
+        
+        segment_paths.append(output_path)
+        subclip.close()
+
+    clip.close()
+    return sorted(segment_paths) 
+
+
 if __name__ == "__main__":
-    preprocess_video(
-        SAMPLE_VIDEO, "content/videos/preprocessed_sample.mp4", 500, to_grayscale=True
-    )
+    video_segments = split_video(SAMPLE_VIDEO)
+    processed_video_segments = []
+    for segment in video_segments:
+        processed_segment = preprocess_video(
+        segment, "content/videos/preprocessed_sample.mp4", 500, to_grayscale=True
+        )
+        processed_video_segments.append(processed_segment)
+    print(processed_video_segments)
+
+

@@ -1,35 +1,98 @@
+import asyncio
+from concurrent.futures import ProcessPoolExecutor
+import os
+
 import torch
 
 from final_transcript_generation import produce_transcript
 from video_context_generation import summarise_video
 from video_lipreading import InferencePipeline, modality, model_conf, model_path
-from video_preprocessing import preprocess_video
+from video_preprocessing import preprocess_video, split_video
 
 VIDEO_PATH = "content/videos/new_sample.mp4"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-
-def main():
-    output_path = VIDEO_PATH.replace("new_sample", "preprocessed_new_sample")
+def preprocess_wrapper(file_path):
+    file_name = os.path.basename(file_path)
+    output_path = file_path.replace(file_name, "preprocessed_" + file_name)
     preprocessed_video_path = preprocess_video(
-        VIDEO_PATH,
+        file_path,
         output_path=output_path,
         target_width=300,
         target_fps=10,
         to_grayscale=True,
     )
-    video_context = summarise_video(preprocessed_video_path)
-    print(video_context)
+    return preprocessed_video_path
 
+
+def run_inference_worker(
+    segment_path: str,
+    modality: str,
+    model_path: str,
+    model_conf: dict,
+    device: str
+) -> str:
+    """
+    A top-level worker that RE-CREATES the un-pickleable pipeline object inside the new process before running inference.
+    """
+    # This is the key: initialize the object HERE, inside the worker.
     pipeline = InferencePipeline(
-        modality, model_path, model_conf, face_track=True, device=DEVICE
+        modality=modality,
+        model_path=model_path,
+        model_conf=model_conf,
+        face_track=True,
+        device=device
     )
-    uncorrected_transcript = pipeline(VIDEO_PATH)
-    print("Uncorrected transcript:", uncorrected_transcript)
+    # The pipeline object is now local to this process and is never pickled.
+    transcript = pipeline(segment_path)
+    return transcript
 
-    corrected_transcript = produce_transcript(video_context, uncorrected_transcript)
-    print("Corrected transcript:", corrected_transcript)
+
+async def main():
+
+    file_paths = split_video(VIDEO_PATH)
+
+    with ProcessPoolExecutor() as process_pool:
+        loop = asyncio.get_running_loop()
+    
+        async def process_one_segment(segment_path: str):    
+            # Schedule the two CPU-bound tasks.
+            transcript_future = loop.run_in_executor(
+                process_pool, run_inference_worker, 
+                segment_path, modality, model_path, model_conf, DEVICE
+            )
+            preprocessed_path_future = loop.run_in_executor(
+                process_pool, preprocess_wrapper, segment_path
+            )
+            # Await the preprocessing result, as the summary task depends on it.
+            preprocessed_video_path = await preprocessed_path_future
+            
+      
+            summary_coroutine = summarise_video(preprocessed_video_path)      
+          # Await the remaining tasks.
+            raw_transcript, summary = await asyncio.gather(transcript_future, summary_coroutine)
+            
+            # Return all three results.
+            return raw_transcript, preprocessed_video_path, summary
+
+        master_tasks = []
+        for file_path in file_paths:
+            master_tasks.append(process_one_segment(file_path))
+
+        all_video_segment_info = await asyncio.gather(*master_tasks) 
+    
+    full_transcript = ""
+    for uncorrected_transcript, preprocessed_video_path, summary in all_video_segment_info:
+        
+        corrected_transcript = produce_transcript(video_summary=summary, 
+                                                  raw_transcript=uncorrected_transcript, 
+                                                  conversation_history=full_transcript,
+                                                  video_path=preprocessed_video_path)
+
+        full_transcript += " " + corrected_transcript
+
+    print(full_transcript)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -89,11 +89,6 @@ class InferencePipeline(torch.nn.Module):
         return enc_feats
 
 
-def run_inference(video_path: str, pipeline: InferencePipeline):
-    """Runs the full lip-reading pipeline on a video."""
-    return pipeline(video_path)
-
-
 if __name__ == "__main__":
     print("Setting up pipeline\n")
     pipeline = InferencePipeline(

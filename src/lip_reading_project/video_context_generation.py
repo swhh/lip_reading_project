@@ -1,5 +1,6 @@
 import os
 
+import aiofiles
 from google import genai
 from google.genai import types
 
@@ -10,21 +11,23 @@ SAMPLE_VIDEO = "content/videos/preprocessed_sample.mp4"
 SAMPLE_TRANSCRIPT = "WHAT I'M GOING TO DO IS I'M GOING TO HOLD MY HAND UP AND I'M GOING TO HOLD MY HAND UP AND I'M GOING TO HOLD MY HAND UP"
 
 
-def summarise_video(video_path):
-    """Generate summary of video with Gemini
-    NB: video not immediately available after upload; need to load separately and then query them
-    """
+async def summarise_video(video_path:str):
+    """Generate summary of video clip with Gemini"""
     if not GEMINI_API_KEY:
         raise ValueError("Please set your GEMINI_API_KEY")
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
-        video_bytes = open(video_path, "rb").read()
+        async with aiofiles.open(video_path, mode = "rb") as f:
+            video_bytes = await f.read()
 
-        prompt = f"""Try to infer what this scene represents. 
-        Provide a brief summary of the environment, any individuals present and what they are doing. 
-        Return only the summary"""
+        prompt = """
+    Analyse this video segment and provide a concise, one-paragraph summary. 
+    Focus on the main topic of conversation, key actions, or objects shown. 
+    This summary will be used as context for a lip-reading AI.
+    Return only the summary.
+    """
 
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="models/gemini-2.5-flash",
             contents=types.Content(
                 parts=[
@@ -37,7 +40,7 @@ def summarise_video(video_path):
         )
 
     except Exception as e:
-        print(f"Job Fetching Error: {e}")
+        print(f"Summarise video error: {e}")
         return None
     return response.text
 
