@@ -80,7 +80,7 @@ def preprocess_video(
     return output_path
 
 
-def split_video(video_path, segment_length_sec=15, output_dir="content/videos/video_segments"):
+def split_video(video_path, segment_length_sec=15, output_dir="content/videos/video_segments", overlap=1):
     """
     Splits a video into segments of a specified length.
 
@@ -88,6 +88,7 @@ def split_video(video_path, segment_length_sec=15, output_dir="content/videos/vi
         video_path (str): Path to the input video file.
         segment_length_sec (int): The desired length of each segment in seconds.
         output_dir (str): The directory to save the video segments.
+        overlap (int): The overlap in seconds between video segments to avoid transcription issues from cutting speaker off mid-word.
 
     Returns:
         list: A sorted list of file paths to the created video segments.
@@ -104,8 +105,8 @@ def split_video(video_path, segment_length_sec=15, output_dir="content/videos/vi
 
     segment_paths = []
     for i in range(num_segments):
-        start_time = i * segment_length_sec
-        end_time = min((i + 1) * segment_length_sec, duration)
+        start_time = i * segment_length_sec - overlap if i else 0
+        end_time = min(start_time + segment_length_sec, duration)
         
         # Define the output filename
         base_name = os.path.splitext(os.path.basename(video_path))[0]
