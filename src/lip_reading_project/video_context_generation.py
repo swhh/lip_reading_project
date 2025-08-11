@@ -11,13 +11,13 @@ SAMPLE_VIDEO = "content/videos/preprocessed_sample.mp4"
 SAMPLE_TRANSCRIPT = "WHAT I'M GOING TO DO IS I'M GOING TO HOLD MY HAND UP AND I'M GOING TO HOLD MY HAND UP AND I'M GOING TO HOLD MY HAND UP"
 
 
-async def summarise_video(video_path:str):
+async def summarise_video(video_path: str):
     """Generate summary of video clip with Gemini"""
     if not GEMINI_API_KEY:
         raise ValueError("Please set your GEMINI_API_KEY")
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
-        async with aiofiles.open(video_path, mode = "rb") as f:
+        async with aiofiles.open(video_path, mode="rb") as f:
             video_bytes = await f.read()
 
         prompt = """

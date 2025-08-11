@@ -80,7 +80,12 @@ def preprocess_video(
     return output_path
 
 
-def split_video(video_path, segment_length_sec=15, output_dir="content/videos/video_segments", overlap=1):
+def split_video(
+    video_path,
+    segment_length_sec=15,
+    output_dir="content/videos/video_segments",
+    overlap=1,
+):
     """
     Splits a video into segments of a specified length.
 
@@ -100,29 +105,31 @@ def split_video(video_path, segment_length_sec=15, output_dir="content/videos/vi
     clip = VideoFileClip(video_path)
     duration = clip.duration
     num_segments = math.ceil(duration / segment_length_sec)
-    
+
     print(f"Video duration: {duration:.2f}s. Splitting into {num_segments} segments.")
 
     segment_paths = []
     for i in range(num_segments):
         start_time = i * segment_length_sec - overlap if i else 0
         end_time = min(start_time + segment_length_sec, duration)
-        
+
         # Define the output filename
         base_name = os.path.splitext(os.path.basename(video_path))[0]
         output_path = os.path.join(output_dir, f"{base_name}_segment_{i+1:03d}.mp4")
-        
-        print(f"  Creating segment {i+1}: from {start_time:.2f}s to {end_time:.2f}s -> {output_path}")
-        
+
+        print(
+            f"  Creating segment {i+1}: from {start_time:.2f}s to {end_time:.2f}s -> {output_path}"
+        )
+
         # Create subclip and write to file
         subclip = clip.subclipped(start_time, end_time)
         subclip.write_videofile(output_path)
-        
+
         segment_paths.append(output_path)
         subclip.close()
 
     clip.close()
-    return sorted(segment_paths) 
+    return sorted(segment_paths)
 
 
 if __name__ == "__main__":
@@ -130,9 +137,7 @@ if __name__ == "__main__":
     processed_video_segments = []
     for segment in video_segments:
         processed_segment = preprocess_video(
-        segment, "content/videos/preprocessed_sample.mp4", 500, to_grayscale=True
+            segment, "content/videos/preprocessed_sample.mp4", 500, to_grayscale=True
         )
         processed_video_segments.append(processed_segment)
     print(processed_video_segments)
-
-

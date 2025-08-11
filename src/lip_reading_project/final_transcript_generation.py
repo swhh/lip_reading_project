@@ -6,11 +6,17 @@ from google.genai import types
 model_id = "gemini-2.5-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-def produce_transcript(video_path: str, video_summary: str, raw_transcript: str, conversation_history:str = ""):
+
+def produce_transcript(
+    video_path: str,
+    video_summary: str,
+    raw_transcript: str,
+    conversation_history: str = "",
+):
     """Produce final transcript with LLM based on uncorrected transcript from lip-reading model and AI-generated video context"""
     if not GEMINI_API_KEY:
         raise ValueError("Please set your GEMINI_API_KEY")
-    
+
     video_bytes = open(video_path, "rb").read()
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
@@ -37,7 +43,6 @@ def produce_transcript(video_path: str, video_summary: str, raw_transcript: str,
                     Provide ONLY the corrected transcript.
                     """
 
-
         response = client.models.generate_content(
             model="models/gemini-2.5-flash",
             contents=types.Content(
@@ -53,5 +58,3 @@ def produce_transcript(video_path: str, video_summary: str, raw_transcript: str,
         print(f"Error producing transcript: {e}")
         return None
     return response.text
-
-
