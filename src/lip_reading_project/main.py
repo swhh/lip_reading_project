@@ -7,7 +7,7 @@ import os
 import torch
 
 from utils import find_normalised_word_overlap, plausible_overlap
-from final_transcript_generation import produce_transcript
+from final_transcript_generation import produce_global_diarised_transcript, produce_transcript, upload_video_to_gemini
 from video_context_generation import summarise_video
 from video_lipreading import InferencePipeline, modality, model_conf, model_path
 from video_preprocessing import preprocess_video, split_video
@@ -17,7 +17,7 @@ VIDEO_DIR = "content/videos/"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 AVG_WORDS_PER_SECOND = 1.5
-
+WINDOW_LENGTH = 2000
 
 def preprocess_wrapper(file_path):
     file_name = os.path.basename(file_path)
@@ -47,11 +47,30 @@ def run_inference_worker(
     return transcript
 
 
-async def main(filename, overlap=0):
+async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
+
+
+    original_video_path = os.path.join(VIDEO_DIR, filename)
+    # Preprocess full video once 
+    file_name = os.path.basename(original_video_path)
+    preprocessed_original_path = original_video_path.replace(file_name, "preprocessed_" + file_name)
+    preprocess_video(
+        original_video_path,
+        output_path=preprocessed_original_path,
+        target_width=300,
+        target_fps=10,
+        to_grayscale=True,
+    )
+
+    # Start uploading the preprocessed full video early
+    upload_task = asyncio.create_task(upload_video_to_gemini(preprocessed_original_path))
+
 
     file_paths = split_video(os.path.join(VIDEO_DIR, filename), overlap=overlap)
+    max_workers = torch.cuda.device_count() if DEVICE == 'cuda' else 1
 
-    with ProcessPoolExecutor() as process_pool:
+
+    with ProcessPoolExecutor(max_workers=max_workers) as process_pool:
         loop = asyncio.get_running_loop()
 
         async def process_one_segment(segment_path: str):
@@ -86,10 +105,9 @@ async def main(filename, overlap=0):
 
         all_video_segment_info = await asyncio.gather(*master_tasks)
 
-    full_transcript = (
-        []
-    )  # store transcript as a list to ensure word overlap calculations are efficient
-
+    full_transcript = [] # store transcript as a list to ensure word overlap calculations are efficient
+    context_history = ""
+  
     for (
         uncorrected_transcript,
         preprocessed_video_path,
@@ -100,8 +118,12 @@ async def main(filename, overlap=0):
             video_path=preprocessed_video_path,
             video_summary=summary,
             raw_transcript=uncorrected_transcript,
-            conversation_history=full_transcript,
+            conversation_history=" ".join(full_transcript[-window_length:]),
+            context_history=context_history
         )
+        if not corrected_transcript: # if no dialogue in segment
+            continue
+
         new_segment = corrected_transcript.split()
         if overlap:
             lookback_words = math.ceil(AVG_WORDS_PER_SECOND * overlap)
@@ -115,8 +137,23 @@ async def main(filename, overlap=0):
                 new_segment = new_segment[overlap_length:]
 
         full_transcript.extend(new_segment)
+        context_history += " " + summary   
 
-    print(" ".join(full_transcript))
+    print("Transcript prior to diarisation:"," ".join(full_transcript))
+
+    # Wait for upload to complete and run global diarisation with the file_uri
+    uploaded_file = await upload_task
+    if uploaded_file.state.name == 'ACTIVE':
+        global_diarized = produce_global_diarised_transcript(
+            video_file_uri=uploaded_file.uri,
+            corrected_transcript=" ".join(full_transcript),
+            context_history=context_history,
+        )
+        if global_diarized:
+            print("Transcript with diarisation:", global_diarized)
+    else:
+        print('Cannot diarise transcript as uploaded video file not ready for Gemini')
+    
 
 
 if __name__ == "__main__":
@@ -125,7 +162,9 @@ if __name__ == "__main__":
         description="Generates a transcript of a video using a lip-reading AI model.",
     )
     parser.add_argument("filename")
+    parser.add_argument('--overlap', type=int, default=0)
     args = parser.parse_args()
     filename = args.filename
+    overlap = args.overlap
 
-    asyncio.run(main(filename))
+    asyncio.run(main(filename, overlap=overlap))

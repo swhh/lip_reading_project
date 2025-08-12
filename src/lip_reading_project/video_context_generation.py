@@ -7,10 +7,6 @@ from google.genai import types
 model_id = "gemini-2.5-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-SAMPLE_VIDEO = "content/videos/preprocessed_sample.mp4"
-SAMPLE_TRANSCRIPT = "WHAT I'M GOING TO DO IS I'M GOING TO HOLD MY HAND UP AND I'M GOING TO HOLD MY HAND UP AND I'M GOING TO HOLD MY HAND UP"
-
-
 async def summarise_video(video_path: str):
     """Generate summary of video clip with Gemini"""
     if not GEMINI_API_KEY:
@@ -44,6 +40,3 @@ async def summarise_video(video_path: str):
         return None
     return response.text
 
-
-if __name__ == "__main__":
-    print(summarise_video(SAMPLE_VIDEO))

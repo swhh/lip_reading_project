@@ -11,9 +11,6 @@ MODEL_ID = "LRS3_V_WER19.1"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# 3. Path to your preprocessed data or video
-VIDEO_PATH = "content/videos/sample.mp4"
-
 modality = "video"
 model_conf = f"content/model/{MODEL_ID}.json"
 model_path = f"content/model/{MODEL_ID}_model.pth"
@@ -88,12 +85,3 @@ class InferencePipeline(torch.nn.Module):
                 )
         return enc_feats
 
-
-if __name__ == "__main__":
-    print("Setting up pipeline\n")
-    pipeline = InferencePipeline(
-        modality, model_path, model_conf, face_track=True, device=DEVICE
-    )
-    print("Running inference\n")
-    transcript = pipeline(VIDEO_PATH)
-    print(transcript)

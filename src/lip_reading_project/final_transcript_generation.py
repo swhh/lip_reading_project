@@ -6,31 +6,39 @@ from google.genai import types
 model_id = "gemini-2.5-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+def _client():
+    if not GEMINI_API_KEY:
+        raise ValueError("Please set your GEMINI_API_KEY")
+    return genai.Client(api_key=GEMINI_API_KEY)
+
 
 def produce_transcript(
     video_path: str,
     video_summary: str,
     raw_transcript: str,
     conversation_history: str = "",
+    context_history: str = ""
 ):
     """Produce final transcript with LLM based on uncorrected transcript from lip-reading model and AI-generated video context"""
-    if not GEMINI_API_KEY:
-        raise ValueError("Please set your GEMINI_API_KEY")
 
     video_bytes = open(video_path, "rb").read()
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        client = _client()
 
         prompt = f"""
                     You are an expert lip-reading assistant. Your task is to produce the definitive transcript for a video segment.
 
-                    You have been provided with three sources of information:
+                    You have been provided with four sources of information:
                     1.  **Context from previous segments:** The corrected dialogue leading up to this point.
-                    2.  **Video Summary:** A high-level summary of what happens in the current video segment.
-                    3.  **Noisy Raw Transcript:** A raw, error-prone transcript from a specialized AI model.
+                    2.  **History from previous segments:** The high-level summaries of previous segments leading up to this point.
+                    3.  **Video Summary:** A high-level summary of what happens in the current video segment.
+                    4.  **Noisy Raw Transcript:** A raw, error-prone transcript from a specialized AI model.
 
                     **Context from previous segments:**
                     {conversation_history if conversation_history else "This is the first segment."}
+
+                    **Context from previous segments:**
+                    {context_history if context_history else "(none)"}
 
                     **Video Summary for CURRENT segment:**
                     "{video_summary}"
@@ -57,4 +65,59 @@ def produce_transcript(
     except Exception as e:
         print(f"Error producing transcript: {e}")
         return None
+    return response.text
+
+
+
+
+
+async def upload_video_to_gemini(video_path: str):
+    """
+    Asynchronously upload a large video to Gemini Files API and return the uploaded file object.
+    """
+    client = _client()
+    uploaded = await client.aio.files.upload(file=video_path, mime_type="video/mp4")
+    return uploaded 
+
+def produce_global_diarised_transcript(
+    video_file_uri: str,
+    corrected_transcript: str,
+    context_history: str = "",
+) -> str:
+    """
+    Diarize the entire corrected transcript using the Files API file_uri for the full video.
+    """
+    try:
+        client = _client()
+        prompt = f"""
+    You are an expert at speaker diarization using visual cues from the video and full conversational context.
+    Attribute each utterance to stable speaker labels [S1], [S2], ... consistently across the entire video.
+
+    Guidelines:
+    - Use labels like [S1], [S2], etc. (no names).
+    - Keep labels consistent throughout the whole transcript.
+    - Preserve the words exactly; only add labels (minimal punctuation allowed).
+    - Output format: lines like [S1]: <utterance>
+
+    Inputs:
+    - Visual/context history (summaries from all segments): {context_history if context_history else "(none)"}
+    - Full corrected transcript (no labels yet): "{corrected_transcript}"
+
+    Return ONLY the diarized transcript, nothing else.
+    """
+        response = client.models.generate_content(
+            model="models/gemini-2.5-flash",
+            contents=types.Content(
+                parts=[
+                    types.Part.from_uri(
+                        file_uri=video_file_uri, mime_type="video/mp4"
+                    ),
+                    types.Part.from_text(text=prompt),
+                ]
+            ),
+        )
+    except Exception as e:
+        print(e)
+        return None
+    
     return response.text

@@ -57,5 +57,3 @@ def plausible_overlap(
     max_overlap = math.ceil(expected_overlap * max_percent)
     return min_overlap <= overlap <= max_overlap
 
-
-print(normalise_text("hello, i am writing"), normalise_text("i am writing"))
