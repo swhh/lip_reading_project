@@ -1,10 +1,12 @@
 import os
 
+import asyncio
 from google import genai
 from google.genai import types
 
 model_id = "gemini-2.5-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
 
 def _client():
     if not GEMINI_API_KEY:
@@ -76,7 +78,7 @@ async def upload_video_to_gemini(video_path: str):
     Asynchronously upload a large video to Gemini Files API and return the uploaded file object.
     """
     client = _client()
-    uploaded = await client.aio.files.upload(file=video_path, mime_type="video/mp4")
+    uploaded = await client.aio.files.upload(file=video_path)
     return uploaded 
 
 def produce_global_diarised_transcript(
@@ -98,6 +100,7 @@ def produce_global_diarised_transcript(
     - Keep labels consistent throughout the whole transcript.
     - Preserve the words exactly; only add labels (minimal punctuation allowed).
     - Output format: lines like [S1]: <utterance>
+    - Only add the next label when the speaker changes e.g. S1: some text newline S2: some other text
 
     Inputs:
     - Visual/context history (summaries from all segments): {context_history if context_history else "(none)"}
@@ -112,7 +115,7 @@ def produce_global_diarised_transcript(
                     types.Part.from_uri(
                         file_uri=video_file_uri, mime_type="video/mp4"
                     ),
-                    types.Part.from_text(text=prompt),
+                    types.Part(text=prompt),
                 ]
             ),
         )
@@ -121,3 +124,23 @@ def produce_global_diarised_transcript(
         return None
     
     return response.text
+
+
+async def main():  
+    uploaded_task = asyncio.create_task(upload_video_to_gemini('content/videos/video_segments/preprocessed_lip_read_sample_segment_001.mp4'))
+    uploaded_file = await uploaded_task
+    from time import sleep
+    sleep(60)
+    transcript = produce_global_diarised_transcript(uploaded_file.uri, 
+                                       corrected_transcript="Hello and welcome to Charlie's lipreading test! So, are you a lipreading expert or a novice? This test is designed to help you find out! It's simple.",
+                                       context_history="")
+    print(transcript)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
+    
+    
+
+
+

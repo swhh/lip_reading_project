@@ -52,8 +52,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
 
     original_video_path = os.path.join(VIDEO_DIR, filename)
     # Preprocess full video once 
-    file_name = os.path.basename(original_video_path)
-    preprocessed_original_path = original_video_path.replace(file_name, "preprocessed_" + file_name)
+    preprocessed_original_path = original_video_path.replace(filename, "preprocessed_" + filename)
     preprocess_video(
         original_video_path,
         output_path=preprocessed_original_path,
@@ -62,11 +61,10 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
         to_grayscale=True,
     )
 
-    # Start uploading the preprocessed full video early
+   # Start uploading the preprocessed full video early
     upload_task = asyncio.create_task(upload_video_to_gemini(preprocessed_original_path))
 
-
-    file_paths = split_video(os.path.join(VIDEO_DIR, filename), overlap=overlap)
+    file_paths = split_video(original_video_path, overlap=overlap)
     max_workers = torch.cuda.device_count() if DEVICE == 'cuda' else 1
 
 
@@ -141,7 +139,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
 
     print("Transcript prior to diarisation:"," ".join(full_transcript))
 
-    # Wait for upload to complete and run global diarisation with the file_uri
+ #   Wait for upload to complete and run global diarisation with the file_uri
     uploaded_file = await upload_task
     if uploaded_file.state.name == 'ACTIVE':
         global_diarized = produce_global_diarised_transcript(
