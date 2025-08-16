@@ -41,7 +41,7 @@ def preprocess_video(
     aspect_ratio = original_height / original_width
     target_height = int(target_width * aspect_ratio)
 
-    fourcc = cv2.VideoWriter_fourcc(*"avc1")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
     out = cv2.VideoWriter(
         output_path,

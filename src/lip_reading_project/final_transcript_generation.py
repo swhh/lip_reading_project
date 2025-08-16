@@ -71,7 +71,21 @@ def produce_transcript(
 
 
 
-
+async def wait_until_file_active(file_name: str, timeout: int = 600, poll_interval: float = 3.0):
+    client = _client()
+    loop = asyncio.get_event_loop()
+    deadline = loop.time() + timeout
+    while True:
+        f = await client.aio.files.get(name=file_name)
+        state = getattr(f, "state", None) or getattr(f, "status", None)
+        if state == "ACTIVE":
+            return f
+        if state in ("FAILED", "ERROR", "DELETED"):
+            raise RuntimeError(f"File processing failed with state: {state}")
+        if loop.time() >= deadline:
+            raise TimeoutError("Timed out waiting for file to become ACTIVE")
+        await asyncio.sleep(poll_interval)
+        
 
 async def upload_video_to_gemini(video_path: str):
     """

@@ -3,7 +3,8 @@ poetry.lock
 *.pth
 __pycache__
 *.json
-/../.DS_Store
+DS_Store
+/content
 
 
 
