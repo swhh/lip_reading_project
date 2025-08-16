@@ -117,9 +117,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
 
         all_video_segment_info = await asyncio.gather(*master_tasks)
 
-    corrected_transcript = (
-        []
-    )  # store transcript as a list to ensure word overlap calculations are efficient
+    corrected_transcript = []  # store transcript as a list to ensure word overlap calculations are efficient
     context_history = ""
 
     for (
@@ -128,22 +126,22 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
         summary,
     ) in all_video_segment_info:
 
-        corrected_transcript = produce_transcript(
+        corrected_segment = produce_transcript(
             video_path=preprocessed_video_path,
             video_summary=summary,
             raw_transcript=uncorrected_transcript,
             conversation_history=" ".join(corrected_transcript[-window_length:]),
             context_history=context_history,
         )
-        if not corrected_transcript:  # if no dialogue in segment
+        if not corrected_segment:  # if no dialogue in segment
             continue
 
-        new_segment = corrected_transcript.split()
+        new_segment = corrected_segment.split()
         if overlap:
             lookback_words = math.ceil(AVG_WORDS_PER_SECOND * overlap)
             full_transcript_lookback = " ".join(corrected_transcript[-lookback_words:])
             overlap_length = find_normalised_word_overlap(
-                full_transcript_lookback, corrected_transcript
+                full_transcript_lookback, corrected_segment
             )  # if overlap, might need to remove the overlap from the corrected transcript
             if plausible_overlap(
                 overlap_length, overlap * AVG_WORDS_PER_SECOND, 0.4, 1.5
@@ -153,8 +151,9 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
         corrected_transcript.extend(new_segment)
         context_history += " " + summary
 
-    corrected_transcript = " ".join(corrected_transcript)
-    print("Transcript prior to diarisation:", corrected_transcript)
+    if corrected_transcript:
+        corrected_transcript = " ".join(corrected_transcript)
+    print("Transcript prior to diarisation:", corrected_transcript if corrected_transcript else "No transcript available")
 
     #   Wait for upload to complete and run global diarisation with the file_uri
     uploaded_file = await upload_task

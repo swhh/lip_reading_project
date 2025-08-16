@@ -24,7 +24,7 @@ async def summarise_video(video_path: str):
     """
 
         response = await client.aio.models.generate_content(
-            model="models/gemini-2.5-flash",
+            model="models/gemini-2.0-flash",
             contents=types.Content(
                 parts=[
                     types.Part(

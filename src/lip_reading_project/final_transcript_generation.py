@@ -21,7 +21,7 @@ def produce_transcript(
     conversation_history: str = "",
     context_history: str = ""
 ):
-    """Produce final transcript with LLM based on uncorrected transcript from lip-reading model and AI-generated video context"""
+    """Produce final transcript segment with LLM based on uncorrected transcript from lip-reading model and AI-generated video context"""
 
     video_bytes = open(video_path, "rb").read()
     try:
@@ -54,7 +54,7 @@ def produce_transcript(
                     """
 
         response = client.models.generate_content(
-            model="models/gemini-2.5-flash",
+            model="models/gemini-2.0-flash",
             contents=types.Content(
                 parts=[
                     types.Part(
@@ -76,16 +76,16 @@ async def wait_until_file_active(file_name: str, timeout: int = 600, poll_interv
     loop = asyncio.get_event_loop()
     deadline = loop.time() + timeout
     while True:
-        f = await client.aio.files.get(name=file_name)
-        state = getattr(f, "state", None) or getattr(f, "status", None)
+        file = await client.aio.files.get(name=file_name)
+        state = getattr(file, "state", None)
         if state == "ACTIVE":
-            return f
+            return file
         if state in ("FAILED", "ERROR", "DELETED"):
             raise RuntimeError(f"File processing failed with state: {state}")
         if loop.time() >= deadline:
             raise TimeoutError("Timed out waiting for file to become ACTIVE")
         await asyncio.sleep(poll_interval)
-        
+
 
 async def upload_video_to_gemini(video_path: str):
     """
@@ -151,8 +151,11 @@ async def main():
     print(transcript)
 
 
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    #asyncio.run(main())
+    file_path = "/Users/seamusholland/lip_reading_project/src/lip_reading_project/content/videos/preprocessed_new_sample.mp4"
+    print(produce_transcript(file_path, "video of a woman talking", "completely uncontained environments"))
     
     
 

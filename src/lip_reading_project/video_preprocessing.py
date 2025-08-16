@@ -130,3 +130,14 @@ def split_video(video_path, segment_length_sec=15, output_dir="content/videos/vi
     return sorted(segment_paths) 
 
 
+def main():
+    input_path = "/Users/seamusholland/lip_reading_project/src/lip_reading_project/content/videos/new_sample.mp4"
+    output_path = "/Users/seamusholland/lip_reading_project/src/lip_reading_project/content/videos/preprocessed_new_sample.mp4"
+    preprocess_video(input_path, output_path, target_width=400, to_grayscale=True)
+
+
+if __name__ == '__main__':
+    main()
+
+
+
