@@ -15,7 +15,7 @@ from final_transcript_generation import (
     produce_global_diarised_transcript,
     produce_transcript,
     upload_video_to_gemini,
-    wait_until_file_active
+    wait_until_file_active,
 )
 from video_context_generation import summarise_video
 from video_lipreading import InferencePipeline, modality, model_conf, model_path
@@ -24,7 +24,7 @@ from video_preprocessing import preprocess_video, split_video
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,8 @@ VIDEO_DIR = "content/videos/"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # set up multiprocessing so processpoolexecutor works with cuda
-if mp.get_start_method(allow_none=True) != 'spawn': 
-    mp.set_start_method('spawn', force=True)
+if mp.get_start_method(allow_none=True) != "spawn":
+    mp.set_start_method("spawn", force=True)
 
 AVG_WORDS_PER_SECOND = 1.5
 WINDOW_LENGTH = 2000
@@ -73,13 +73,13 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
 
     try:
         if not filename:
-                raise ValueError("Filename is required")
+            raise ValueError("Filename is required")
 
         original_video_path = os.path.join(VIDEO_DIR, filename)
 
         if not os.path.exists(original_video_path):
-                raise FileNotFoundError(f"Video file not found: {original_video_path}")
-        
+            raise FileNotFoundError(f"Video file not found: {original_video_path}")
+
         # Preprocess full video once and use absolute path to ensure no issues with processpoolexecutor
         preprocessed_original_path = original_video_path.replace(
             filename, "preprocessed_" + filename
@@ -100,19 +100,21 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             logger.error(f"Video preprocessing failed: {e}")
             raise RuntimeError(f"Cannot continue without preprocessed video: {e}")
 
-
         # Start uploading the preprocessed full video early
         try:
             upload_task = asyncio.create_task(
-                    upload_video_to_gemini(preprocessed_original_path)
-                )
+                upload_video_to_gemini(preprocessed_original_path)
+            )
         except Exception as e:
             logger.error(f"Failed to start video upload: {e}")
             upload_task = None
 
-
         file_paths = split_video(original_video_path, overlap=overlap)
-        max_workers = torch.cuda.device_count() if DEVICE == "cuda" and torch.cuda.device_count() else 1
+        max_workers = (
+            torch.cuda.device_count()
+            if DEVICE == "cuda" and torch.cuda.device_count()
+            else 1
+        )
 
         with ProcessPoolExecutor(max_workers=max_workers) as process_pool:
             loop = asyncio.get_running_loop()
@@ -147,26 +149,32 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             for file_path in file_paths:
                 master_tasks.append(process_one_segment(file_path))
 
-            segment_results = await asyncio.gather(*master_tasks, return_exceptions=True)
+            segment_results = await asyncio.gather(
+                *master_tasks, return_exceptions=True
+            )
 
         all_video_segment_info = []
         failed_segments = []
-        
+
         for i, result in enumerate(segment_results):
             if isinstance(result, Exception):
                 logger.error(f"Failed to process segment {i+1}: {result}")
-                failed_segments.append((i+1, str(result)))
+                failed_segments.append((i + 1, str(result)))
             else:
                 all_video_segment_info.append(result)
                 logger.info(f"Successfully processed segment {i+1}/{len(file_paths)}")
 
         if not all_video_segment_info:
             raise RuntimeError("All video segments failed to process")
-        
-        if failed_segments:
-            logger.warning(f"Processed {len(all_video_segment_info)} segments, {len(failed_segments)} failed")
 
-        corrected_transcript = []  # store transcript as a list to ensure word overlap calculations are efficient
+        if failed_segments:
+            logger.warning(
+                f"Processed {len(all_video_segment_info)} segments, {len(failed_segments)} failed"
+            )
+
+        corrected_transcript = (
+            []
+        )  # store transcript as a list to ensure word overlap calculations are efficient
         context_history = ""
 
         for (
@@ -188,7 +196,9 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             new_segment = corrected_segment.split()
             if overlap:
                 lookback_words = math.ceil(AVG_WORDS_PER_SECOND * overlap)
-                full_transcript_lookback = " ".join(corrected_transcript[-lookback_words:])
+                full_transcript_lookback = " ".join(
+                    corrected_transcript[-lookback_words:]
+                )
                 overlap_length = find_normalised_word_overlap(
                     full_transcript_lookback, corrected_segment
                 )  # if overlap, might need to remove the overlap from the corrected transcript
@@ -202,7 +212,10 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
 
         if corrected_transcript:
             corrected_transcript = " ".join(corrected_transcript)
-        print("Transcript prior to diarisation:", corrected_transcript if corrected_transcript else "No transcript available")
+        print(
+            "Transcript prior to diarisation:",
+            corrected_transcript if corrected_transcript else "No transcript available",
+        )
 
         #   Wait for upload to complete and run global diarisation with the file_uri
         uploaded_file = None
@@ -213,14 +226,16 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             except Exception as e:
                 logger.error(f"Video upload failed: {e}")
 
-        if uploaded_file and getattr(uploaded_file, 'state', None) != 'ACTIVE':
-            try: 
-                uploaded_file = await wait_until_file_active(uploaded_file.name, timeout=600, poll_interval=10.0)
+        if uploaded_file and getattr(uploaded_file, "state", None) != "ACTIVE":
+            try:
+                uploaded_file = await wait_until_file_active(
+                    uploaded_file.name, timeout=600, poll_interval=10.0
+                )
                 logger.info("Video file is now active")
             except Exception as e:
                 logger.error(f"Failed to wait for file activation: {e}")
                 uploaded_file = None
-            
+
         if uploaded_file:
             try:
                 global_diarized = produce_global_diarised_transcript(
@@ -236,8 +251,8 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
                     logger.warning("Diarisation failed, returning corrected transcript")
                     return corrected_transcript
             except Exception as e:
-                    logger.error(f"Diarisation failed: {e}")
-        
+                logger.error(f"Diarisation failed: {e}")
+
         logger.info("Returning corrected transcript without diarisation")
         return corrected_transcript
     except Exception as e:
@@ -245,9 +260,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
         raise
     finally:
         processing_time = time.time() - start_time
-        logger.info(f"Processing completed in {processing_time:.2f} seconds")       
-
-
+        logger.info(f"Processing completed in {processing_time:.2f} seconds")
 
 
 if __name__ == "__main__":

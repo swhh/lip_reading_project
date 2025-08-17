@@ -56,4 +56,3 @@ def plausible_overlap(
     min_overlap = math.floor(expected_overlap * min_percent)
     max_overlap = math.ceil(expected_overlap * max_percent)
     return min_overlap <= overlap <= max_overlap
-

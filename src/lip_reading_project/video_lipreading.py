@@ -84,4 +84,3 @@ class InferencePipeline(torch.nn.Module):
                     data.to(self.device), extract_resnet_feats
                 )
         return enc_feats
-

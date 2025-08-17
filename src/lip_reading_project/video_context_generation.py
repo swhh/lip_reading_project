@@ -7,6 +7,7 @@ from google.genai import types
 model_id = "gemini-2.5-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+
 async def summarise_video(video_path: str):
     """Generate summary of video clip with Gemini"""
     if not GEMINI_API_KEY:
@@ -39,4 +40,3 @@ async def summarise_video(video_path: str):
         print(f"Summarise video error: {e}")
         return None
     return response.text
-

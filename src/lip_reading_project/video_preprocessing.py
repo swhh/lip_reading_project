@@ -27,7 +27,9 @@ def preprocess_video(
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found at: {input_path}")
     if os.path.exists(output_path):
-        print(f"{output_path} already exists. No need to preprocess video at {input_path}.")
+        print(
+            f"{output_path} already exists. No need to preprocess video at {input_path}."
+        )
         return output_path
 
     cap = cv2.VideoCapture(input_path)
@@ -80,7 +82,12 @@ def preprocess_video(
     return output_path
 
 
-def split_video(video_path, segment_length_sec=15, output_dir="content/videos/video_segments", overlap=0):
+def split_video(
+    video_path,
+    segment_length_sec=15,
+    output_dir="content/videos/video_segments",
+    overlap=0,
+):
     """
     Splits a video into segments of a specified length.
 
@@ -100,34 +107,36 @@ def split_video(video_path, segment_length_sec=15, output_dir="content/videos/vi
     clip = VideoFileClip(video_path)
     duration = clip.duration
     num_segments = math.ceil(duration / segment_length_sec)
-    
+
     print(f"Video duration: {duration:.2f}s. Splitting into {num_segments} segments.")
 
     segment_paths = []
     for i in range(num_segments):
         start_time = i * segment_length_sec - overlap if i else 0
         end_time = min(start_time + segment_length_sec, duration)
-        
+
         # Define the output filename
         base_name = os.path.splitext(os.path.basename(video_path))[0]
         output_path = os.path.join(output_dir, f"{base_name}_segment_{i+1:03d}.mp4")
-        if os.path.exists(output_path): # check if already created
-            print(F"Segment at {output_path} already exists.")
+        if os.path.exists(output_path):  # check if already created
+            print(f"Segment at {output_path} already exists.")
             segment_paths.append(output_path)
             continue
-        
-        print(f"  Creating segment {i+1}: from {start_time:.2f}s to {end_time:.2f}s -> {output_path}")
-        
+
+        print(
+            f"  Creating segment {i+1}: from {start_time:.2f}s to {end_time:.2f}s -> {output_path}"
+        )
+
         # Create subclip and write to file
         subclip = clip.subclipped(start_time, end_time)
         subclip = subclip.without_audio()
         subclip.write_videofile(output_path, audio=False)
-        
+
         segment_paths.append(output_path)
         subclip.close()
 
     clip.close()
-    return sorted(segment_paths) 
+    return sorted(segment_paths)
 
 
 def main():
@@ -136,8 +145,5 @@ def main():
     preprocess_video(input_path, output_path, target_width=400, to_grayscale=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
-
-

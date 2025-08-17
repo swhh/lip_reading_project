@@ -19,7 +19,7 @@ def produce_transcript(
     video_summary: str,
     raw_transcript: str,
     conversation_history: str = "",
-    context_history: str = ""
+    context_history: str = "",
 ):
     """Produce final transcript segment with LLM based on uncorrected transcript from lip-reading model and AI-generated video context"""
 
@@ -70,8 +70,9 @@ def produce_transcript(
     return response.text
 
 
-
-async def wait_until_file_active(file_name: str, timeout: int = 600, poll_interval: float = 3.0):
+async def wait_until_file_active(
+    file_name: str, timeout: int = 600, poll_interval: float = 3.0
+):
     client = _client()
     loop = asyncio.get_event_loop()
     deadline = loop.time() + timeout
@@ -93,7 +94,8 @@ async def upload_video_to_gemini(video_path: str):
     """
     client = _client()
     uploaded = await client.aio.files.upload(file=video_path)
-    return uploaded 
+    return uploaded
+
 
 def produce_global_diarised_transcript(
     video_file_uri: str,
@@ -126,9 +128,7 @@ def produce_global_diarised_transcript(
             model="models/gemini-2.5-flash",
             contents=types.Content(
                 parts=[
-                    types.Part.from_uri(
-                        file_uri=video_file_uri, mime_type="video/mp4"
-                    ),
+                    types.Part.from_uri(file_uri=video_file_uri, mime_type="video/mp4"),
                     types.Part(text=prompt),
                 ]
             ),
@@ -136,28 +136,33 @@ def produce_global_diarised_transcript(
     except Exception as e:
         print(e)
         return None
-    
+
     return response.text
 
 
-async def main():  
-    uploaded_task = asyncio.create_task(upload_video_to_gemini('content/videos/video_segments/preprocessed_lip_read_sample_segment_001.mp4'))
+async def main():
+    uploaded_task = asyncio.create_task(
+        upload_video_to_gemini(
+            "content/videos/video_segments/preprocessed_lip_read_sample_segment_001.mp4"
+        )
+    )
     uploaded_file = await uploaded_task
     from time import sleep
+
     sleep(60)
-    transcript = produce_global_diarised_transcript(uploaded_file.uri, 
-                                       corrected_transcript="Hello and welcome to Charlie's lipreading test! So, are you a lipreading expert or a novice? This test is designed to help you find out! It's simple.",
-                                       context_history="")
+    transcript = produce_global_diarised_transcript(
+        uploaded_file.uri,
+        corrected_transcript="Hello and welcome to Charlie's lipreading test! So, are you a lipreading expert or a novice? This test is designed to help you find out! It's simple.",
+        context_history="",
+    )
     print(transcript)
 
 
-
-if __name__ == '__main__':
-    #asyncio.run(main())
+if __name__ == "__main__":
+    # asyncio.run(main())
     file_path = "/Users/seamusholland/lip_reading_project/src/lip_reading_project/content/videos/preprocessed_new_sample.mp4"
-    print(produce_transcript(file_path, "video of a woman talking", "completely uncontained environments"))
-    
-    
-
-
-
+    print(
+        produce_transcript(
+            file_path, "video of a woman talking", "completely uncontained environments"
+        )
+    )
