@@ -10,16 +10,17 @@ import torch
 import torch.multiprocessing as mp
 
 
-from utils import find_normalised_word_overlap, plausible_overlap
 from final_transcript_generation import (
     produce_global_diarised_transcript,
     produce_transcript,
     upload_video_to_gemini,
     wait_until_file_active,
 )
+from utils import find_normalised_word_overlap, plausible_overlap
 from video_context_generation import summarise_video
 from video_lipreading import InferencePipeline, modality, model_conf, model_path
 from video_preprocessing import preprocess_video, split_video
+
 
 # Set up logging
 logging.basicConfig(
@@ -255,6 +256,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
 
         logger.info("Returning corrected transcript without diarisation")
         return corrected_transcript
+    
     except Exception as e:
         logger.error(f"Critical error in main processing: {e}", exc_info=True)
         raise

@@ -159,10 +159,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    # asyncio.run(main())
-    file_path = "/Users/seamusholland/lip_reading_project/src/lip_reading_project/content/videos/preprocessed_new_sample.mp4"
-    print(
-        produce_transcript(
-            file_path, "video of a woman talking", "completely uncontained environments"
-        )
-    )
+    asyncio.run(main())
+
