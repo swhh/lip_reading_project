@@ -165,6 +165,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             if isinstance(result, Exception):
                 logger.error(f"Failed to process segment {i+1}: {result}")
                 failed_segments.append((i + 1, str(result)))
+                continue
             raw_transcript, chosen_path, summary = result
 
             if isinstance(raw_transcript, Exception):
