@@ -165,7 +165,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             if isinstance(result, Exception):
                 logger.error(f"Failed to process segment {i+1}: {result}")
                 failed_segments.append((i + 1, str(result)))
-            raw_transcript, _, summary = result
+            raw_transcript, chosen_path, summary = result
 
             if isinstance(raw_transcript, Exception):
                 logger.warning(f"Failed to process segment {i+1}: {raw_transcript}")
@@ -175,8 +175,8 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             if isinstance(summary, Exception):
                 logger.warning(f"Summary for segment {i} failed: {summary}")
                 summary = ""
-                
-            all_video_segment_info.append(result)
+
+            all_video_segment_info.append((raw_transcript, chosen_path, summary))
             logger.info(f"Successfully processed segment {i+1}/{len(file_paths)}")
 
         if not all_video_segment_info:
@@ -209,6 +209,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
                 )
             except Exception as e:
                 logger.error(f'Failed to produce corrected segment for segment {i}: {e}', exc_info=True)
+                corrected_segment = None
             
             if not corrected_segment:  # if no dialogue in segment
                 continue
