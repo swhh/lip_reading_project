@@ -81,7 +81,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
         if not os.path.exists(original_video_path):
             raise FileNotFoundError(f"Video file not found: {original_video_path}")
 
-        # Preprocess full video once and use absolute path to ensure no issues with processpoolexecutor
+        # 1. Preprocess full video once and use absolute path to ensure no issues with processpoolexecutor
         preprocessed_original_path = original_video_path.replace(
             filename, "preprocessed_" + filename
         )
@@ -101,7 +101,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             logger.error(f"Video preprocessing failed: {e}")
             raise RuntimeError(f"Cannot continue without preprocessed video: {e}")
 
-        # Start uploading the preprocessed full video early
+        # 2. Start uploading the preprocessed full video early
         try:
             upload_task = asyncio.create_task(
                 upload_video_to_gemini(preprocessed_original_path)
@@ -116,7 +116,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             if DEVICE == "cuda" and torch.cuda.device_count()
             else 1
         )
-
+        # 3. generate segment context and raw transcripts
         with ProcessPoolExecutor(max_workers=max_workers) as process_pool:
             loop = asyncio.get_running_loop()
 
@@ -135,16 +135,20 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
                     process_pool, preprocess_wrapper, segment_path
                 )
                 # Await the preprocessing result, as the summary task depends on it.
-                preprocessed_video_path = await preprocessed_path_future
+                try:
+                    preprocessed_video_path = await preprocessed_path_future
+                    chosen_path = preprocessed_video_path
+                except Exception as e:
+                    logger.warning(f"Preprocessing failed for {segment_path}: {e}")
+                    chosen_path = segment_path
 
-                summary_coroutine = summarise_video(preprocessed_video_path)
+                summary_coroutine = summarise_video(chosen_path)
                 # Await the remaining tasks.
                 raw_transcript, summary = await asyncio.gather(
-                    transcript_future, summary_coroutine
+                    transcript_future, summary_coroutine, return_exceptions=True
                 )
-
                 # Return all three results.
-                return raw_transcript, preprocessed_video_path, summary
+                return raw_transcript, chosen_path, summary
 
             master_tasks = []
             for file_path in file_paths:
@@ -161,9 +165,19 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             if isinstance(result, Exception):
                 logger.error(f"Failed to process segment {i+1}: {result}")
                 failed_segments.append((i + 1, str(result)))
-            else:
-                all_video_segment_info.append(result)
-                logger.info(f"Successfully processed segment {i+1}/{len(file_paths)}")
+            raw_transcript, _, summary = result
+
+            if isinstance(raw_transcript, Exception):
+                logger.warning(f"Failed to process segment {i+1}: {raw_transcript}")
+                failed_segments.append((i + 1, str(raw_transcript)))
+                continue
+            
+            if isinstance(summary, Exception):
+                logger.warning(f"Summary for segment {i} failed: {summary}")
+                summary = ""
+                
+            all_video_segment_info.append(result)
+            logger.info(f"Successfully processed segment {i+1}/{len(file_paths)}")
 
         if not all_video_segment_info:
             raise RuntimeError("All video segments failed to process")
@@ -173,24 +187,29 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
                 f"Processed {len(all_video_segment_info)} segments, {len(failed_segments)} failed"
             )
 
-        corrected_transcript = (
-            []
-        )  # store transcript as a list to ensure word overlap calculations are efficient
+        
+        # 4. generate full corrected transcript
+        # store transcript as a list to ensure word overlap calculations are efficient
+        corrected_transcript = []  
         context_history = ""
 
-        for (
+        for i, (
             uncorrected_transcript,
             preprocessed_video_path,
             summary,
-        ) in all_video_segment_info:
-
-            corrected_segment = produce_transcript(
-                video_path=preprocessed_video_path,
-                video_summary=summary,
-                raw_transcript=uncorrected_transcript,
-                conversation_history=" ".join(corrected_transcript[-window_length:]),
-                context_history=context_history,
-            )
+        ) in enumerate(all_video_segment_info):
+            
+            try:
+                corrected_segment = produce_transcript(
+                    video_path=preprocessed_video_path,
+                    video_summary=summary,
+                    raw_transcript=uncorrected_transcript,
+                    conversation_history=" ".join(corrected_transcript[-window_length:]),
+                    context_history=context_history,
+                )
+            except Exception as e:
+                logger.error(f'Failed to produce corrected segment for segment {i}: {e}', exc_info=True)
+            
             if not corrected_segment:  # if no dialogue in segment
                 continue
 
@@ -218,7 +237,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             corrected_transcript if corrected_transcript else "No transcript available",
         )
 
-        #   Wait for upload to complete and run global diarisation with the file_uri
+        #  5. Create final global diarised transcript with the file_uri
         uploaded_file = None
         if upload_task:
             try:
