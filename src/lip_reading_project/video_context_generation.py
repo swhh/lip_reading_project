@@ -4,7 +4,7 @@ import aiofiles
 from google import genai
 from google.genai import types
 
-model_id = "gemini-2.5-flash"
+model_id = "gemini-2.0-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
@@ -25,7 +25,7 @@ async def summarise_video(video_path: str):
         """
 
     response = await client.aio.models.generate_content(
-        model="models/gemini-2.0-flash",
+        model=model_id,
         contents=types.Content(
             parts=[
                 types.Part(

@@ -54,7 +54,7 @@ def produce_transcript(
                 """
 
     response = client.models.generate_content(
-        model="models/gemini-2.0-flash",
+        model="models/gemini-2.0-flash",  # use Gemini 2.0 to avoid 500 errors
         contents=types.Content(
             parts=[
                 types.Part(
@@ -122,7 +122,7 @@ def produce_global_diarised_transcript(
         Return ONLY the diarized transcript, nothing else.
         """
     response = client.models.generate_content(
-        model="models/gemini-2.5-flash",
+        model=model_id,
         contents=types.Content(
             parts=[
                 types.Part.from_uri(file_uri=video_file_uri, mime_type="video/mp4"),
