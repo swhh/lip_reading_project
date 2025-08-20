@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
+from datetime import timedelta
 import logging
 import math
 import os
@@ -69,7 +70,7 @@ def run_inference_worker(
     return transcript
 
 
-async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
+async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH):
     start_time = time.time()
 
     try:
@@ -81,7 +82,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
         if not os.path.exists(original_video_path):
             raise FileNotFoundError(f"Video file not found: {original_video_path}")
 
-        # 1. Preprocess full video once and use absolute path to ensure no issues with processpoolexecutor
+        # 1. Preprocess full video once
         preprocessed_original_path = original_video_path.replace(
             filename, "preprocessed_" + filename
         )
@@ -110,7 +111,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
             logger.error(f"Failed to start video upload: {e}")
             upload_task = None
 
-        file_paths = split_video(original_video_path, overlap=overlap)
+        file_paths = split_video(original_video_path, overlap=overlap, segment_length_sec=segment_len)
         max_workers = (
             torch.cuda.device_count()
             if DEVICE == "cuda" and torch.cuda.device_count()
@@ -162,22 +163,23 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
         failed_segments = []
 
         for i, result in enumerate(segment_results):
-            if isinstance(result, Exception):
+            if isinstance(result, Exception): 
                 logger.error(f"Failed to process segment {i+1}: {result}")
                 failed_segments.append((i + 1, str(result)))
                 continue
             raw_transcript, chosen_path, summary = result
 
-            if isinstance(raw_transcript, Exception):
+            if isinstance(raw_transcript, Exception): # if raw_transcript generation failed, skip segment
                 logger.warning(f"Failed to process segment {i+1}: {raw_transcript}")
                 failed_segments.append((i + 1, str(raw_transcript)))
                 continue
             
-            if isinstance(summary, Exception):
+            if isinstance(summary, Exception): # if summary fails, set summary to empty string
                 logger.warning(f"Summary for segment {i} failed: {summary}")
                 summary = ""
 
-            all_video_segment_info.append((raw_transcript, chosen_path, summary))
+            time_stamp = i * segment_len - overlap if i else 0
+            all_video_segment_info.append((f'[{timedelta(seconds=time_stamp)}] ' + raw_transcript, chosen_path, summary))
             logger.info(f"Successfully processed segment {i+1}/{len(file_paths)}")
 
         if not all_video_segment_info:
@@ -209,7 +211,7 @@ async def main(filename, overlap=0, window_length=WINDOW_LENGTH):
                     context_history=context_history,
                 )
             except Exception as e:
-                logger.error(f'Failed to produce corrected segment for segment {i}: {e}', exc_info=True)
+                logger.error(f'Failed to produce corrected transcript for filtered segment {i}: {e}', exc_info=True)
                 corrected_segment = None
             
             if not corrected_segment:  # if no dialogue in segment
