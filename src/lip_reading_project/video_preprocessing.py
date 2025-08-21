@@ -43,7 +43,7 @@ def preprocess_video(
     aspect_ratio = original_height / original_width
     target_height = int(target_width * aspect_ratio)
 
-    fourcc = cv2.VideoWriter_fourcc(*"avc1")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
     out = cv2.VideoWriter(
         output_path,
@@ -114,7 +114,7 @@ def split_video(
     for i in range(num_segments):
         start_time = i * segment_length_sec - overlap if i else 0
         end_time = min(start_time + segment_length_sec, duration)
-        if end_time - start_time < 1: # skip final segment if less than a second long
+        if end_time - start_time < 1:  # skip final segment if less than a second long
             continue
 
         # Define the output filename
@@ -139,4 +139,3 @@ def split_video(
 
     clip.close()
     return sorted(segment_paths)
-
