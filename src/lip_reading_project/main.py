@@ -31,7 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 VIDEO_DIR = "content/videos/"
-FAILED_SEGMENT = '(Transcript segment {} is missing)'
+FAILED_SEGMENT = "(Transcript segment {} is missing)"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -73,39 +73,47 @@ def run_inference_worker(
 
 
 def generate_video_segment_info(segment_results, segment_len, overlap):
-     all_video_segment_info = []
-     failed_segments = []
-     for i, result in enumerate(segment_results):
-            if isinstance(result, Exception): 
-                logger.error(f"Failed to process segment {i+1}: {result}")
-                failed_segments.append((i + 1, str(result)))
-                all_video_segment_info.append((FAILED_SEGMENT.format(i), '', ''))
-                continue
-            raw_transcript, chosen_path, summary = result
+    all_video_segment_info = []
+    failed_segments = []
+    for i, result in enumerate(segment_results):
+        if isinstance(result, Exception):
+            logger.error(f"Failed to process segment {i+1}: {result}")
+            failed_segments.append((i + 1, str(result)))
+            all_video_segment_info.append((FAILED_SEGMENT.format(i), "", ""))
+            continue
+        raw_transcript, chosen_path, summary = result
 
-            if isinstance(raw_transcript, Exception): # if raw_transcript generation failed, segment fail
-                logger.warning(f"Failed to process segment {i+1}: {raw_transcript}")
-                failed_segments.append((i + 1, str(raw_transcript)))
-                all_video_segment_info.append((FAILED_SEGMENT.format(i), '', ''))
-                continue
-            
-            if isinstance(summary, Exception): # if summary fails, set summary to empty string
-                logger.warning(f"Summary for segment {i} failed: {summary}")
-                summary = ""
+        if isinstance(
+            raw_transcript, Exception
+        ):  # if raw_transcript generation failed, segment fail
+            logger.warning(f"Failed to process segment {i+1}: {raw_transcript}")
+            failed_segments.append((i + 1, str(raw_transcript)))
+            all_video_segment_info.append((FAILED_SEGMENT.format(i), "", ""))
+            continue
 
-            time_stamp = i * segment_len - overlap if i else 0
-            all_video_segment_info.append((f'[{timedelta(seconds=time_stamp)}] ' + raw_transcript, chosen_path, summary))
-            logger.info(f"Successfully processed segment {i+1}/{len(segment_results)}")
-     return all_video_segment_info, failed_segments
+        if isinstance(
+            summary, Exception
+        ):  # if summary fails, set summary to empty string
+            logger.warning(f"Summary for segment {i} failed: {summary}")
+            summary = ""
+
+        time_stamp = i * segment_len - overlap if i else 0
+        all_video_segment_info.append(
+            (
+                f"[{timedelta(seconds=time_stamp)}] " + raw_transcript,
+                chosen_path,
+                summary,
+            )
+        )
+        logger.info(f"Successfully processed segment {i+1}/{len(segment_results)}")
+    return all_video_segment_info, failed_segments
 
 
 def generate_final_segment(corrected_transcript, corrected_segment, overlap):
     new_segment = corrected_segment.split()
     if overlap:
         lookback_words = math.ceil(AVG_WORDS_PER_SECOND * overlap)
-        full_transcript_lookback = " ".join(
-            corrected_transcript[-lookback_words:]
-        )
+        full_transcript_lookback = " ".join(corrected_transcript[-lookback_words:])
         overlap_length = find_normalised_word_overlap(
             full_transcript_lookback, corrected_segment
         )  # if overlap, might need to remove the overlap from the corrected transcript
@@ -117,49 +125,49 @@ def generate_final_segment(corrected_transcript, corrected_segment, overlap):
 
 
 def generate_final_transcript(all_video_segment_info, window_length):
-    corrected_transcript = []  
+    corrected_transcript = []
     context_history = ""
 
     for i, (
-            uncorrected_transcript,
-            preprocessed_video_path,
-            summary,
-        ) in enumerate(all_video_segment_info):
-            
-            if uncorrected_transcript == FAILED_SEGMENT.format(i):
-                corrected_transcript.extend(uncorrected_transcript.split())
-                continue
-            
-            try:
-                corrected_segment = produce_transcript(
-                    video_path=preprocessed_video_path,
-                    video_summary=summary,
-                    raw_transcript=uncorrected_transcript,
-                    conversation_history=" ".join(corrected_transcript[-window_length:]),
-                    context_history=context_history,
-                )
-            except Exception as e:
-                logger.error(f'Failed to produce corrected transcript for filtered segment {i}: {e}', exc_info=True)
-                corrected_segment = uncorrected_transcript  # use uncorrected transcript if correction failed
-            
-            if not corrected_segment:  # skip if no dialogue in segment
-                continue
+        uncorrected_transcript,
+        preprocessed_video_path,
+        summary,
+    ) in enumerate(all_video_segment_info):
 
-            new_segment = generate_final_segment(corrected_transcript, corrected_segment, overlap)
+        if uncorrected_transcript == FAILED_SEGMENT.format(i):
+            corrected_transcript.extend(uncorrected_transcript.split())
+            continue
 
-            corrected_transcript.extend(new_segment)
-            context_history += " " + summary
+        try:
+            corrected_segment = produce_transcript(
+                video_path=preprocessed_video_path,
+                video_summary=summary,
+                raw_transcript=uncorrected_transcript,
+                conversation_history=" ".join(corrected_transcript[-window_length:]),
+                context_history=context_history,
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to produce corrected transcript for filtered segment {i}: {e}",
+                exc_info=True,
+            )
+            corrected_segment = uncorrected_transcript  # use uncorrected transcript if correction failed
+
+        if not corrected_segment:  # skip if no dialogue in segment
+            continue
+
+        new_segment = generate_final_segment(
+            corrected_transcript, corrected_segment, overlap
+        )
+
+        corrected_transcript.extend(new_segment)
+        context_history += " " + summary
     return corrected_transcript, context_history
 
 
 async def process_segments(
-    file_paths,
-    max_workers,
-    modality,
-    model_path,
-    model_conf,
-    device
-    ):
+    file_paths, max_workers, modality, model_path, model_conf, device
+):
     with ProcessPoolExecutor(max_workers=max_workers) as process_pool:
         loop = asyncio.get_running_loop()
 
@@ -197,9 +205,6 @@ async def process_segments(
         return await asyncio.gather(*master_tasks, return_exceptions=True)
 
 
-
-
-
 async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH):
     start_time = time.time()
 
@@ -232,7 +237,7 @@ async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH)
             logger.error(f"Video preprocessing failed: {e}")
             raise RuntimeError(f"Cannot continue without preprocessed video: {e}")
 
-        # 2. Start uploading the preprocessed full video early
+        # 2. Start uploading the preprocessed full video early and split video into segments
         try:
             upload_task = asyncio.create_task(
                 upload_video_to_gemini(preprocessed_original_path)
@@ -241,12 +246,15 @@ async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH)
             logger.error(f"Failed to start video upload: {e}")
             upload_task = None
 
-        file_paths = split_video(original_video_path, overlap=overlap, segment_length_sec=segment_len)
+        file_paths = split_video(
+            original_video_path, overlap=overlap, segment_length_sec=segment_len
+        )
         max_workers = (
             torch.cuda.device_count()
             if DEVICE == "cuda" and torch.cuda.device_count()
             else 1
         )
+
         # 3. generate segment context and raw transcripts
         segment_results = await process_segments(
             file_paths=file_paths,
@@ -255,11 +263,13 @@ async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH)
             model_path=model_path,
             model_conf=model_conf,
             device=DEVICE,
-            )
-            
+        )
+
         # generate all video segments
-        all_video_segment_info, failed_segments = generate_video_segment_info(segment_results, segment_len, overlap)
-        
+        all_video_segment_info, failed_segments = generate_video_segment_info(
+            segment_results, segment_len, overlap
+        )
+
         if not all_video_segment_info:
             raise RuntimeError("All video segments failed to process")
 
@@ -268,17 +278,24 @@ async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH)
                 f"Processed {len(all_video_segment_info)} segments, {len(failed_segments)} failed"
             )
 
-        
         # 4. generate full corrected transcript
         # store transcript as a list to ensure word overlap calculations are efficient
-        corrected_transcript, context_history = generate_final_transcript(all_video_segment_info, window_length=window_length)
+        corrected_transcript, context_history = generate_final_transcript(
+            all_video_segment_info, window_length=window_length, overlap=overlap
+        )
 
         if corrected_transcript:
             corrected_transcript = " ".join(corrected_transcript)
-        print(
-            "Transcript prior to diarisation:",
-            corrected_transcript if corrected_transcript else "No transcript available",
-        )
+            print("Transcript prior to diarisation:", corrected_transcript)
+        else:
+            print("No transcript available") # if no transcript, skip step 5
+            if upload_task:
+                upload_task.cancel()
+                try: 
+                    await upload_task
+                except asyncio.CancelledError:
+                    pass
+            return
 
         #  5. Create final global diarised transcript with the file_uri
         uploaded_file = None
@@ -318,7 +335,7 @@ async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH)
 
         logger.info("Returning corrected transcript without diarisation")
         return corrected_transcript
-    
+
     except Exception as e:
         logger.error(f"Critical error in main processing: {e}", exc_info=True)
         raise
