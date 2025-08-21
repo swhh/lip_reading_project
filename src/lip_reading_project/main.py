@@ -2,6 +2,7 @@ import argparse
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from datetime import timedelta
+import itertools
 import logging
 import math
 import os
@@ -30,7 +31,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VIDEO_DIR = "content/videos/"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+VIDEO_DIR = os.path.join(BASE_DIR, "content", "videos")
 FAILED_SEGMENT = "(Transcript segment {} is missing)"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -124,7 +126,7 @@ def generate_final_segment(corrected_transcript, corrected_segment, overlap):
     return new_segment
 
 
-def generate_final_transcript(all_video_segment_info, window_length):
+def generate_final_transcript(all_video_segment_info, window_length, overlap=0):
     corrected_transcript = []
     context_history = ""
 
@@ -168,10 +170,17 @@ def generate_final_transcript(all_video_segment_info, window_length):
 async def process_segments(
     file_paths, max_workers, modality, model_path, model_conf, device
 ):
+    if device == "cuda" and torch.cuda.device_count():
+        device_names = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
+    else:
+        device_names = [DEVICE]
+    device_cycle = itertools.cycle(device_names)  # create round robin for gpus
+
     with ProcessPoolExecutor(max_workers=max_workers) as process_pool:
         loop = asyncio.get_running_loop()
 
         async def process_one_segment(segment_path: str):
+            assigned_device = next(device_cycle)
             # Schedule the two CPU-bound tasks.
             transcript_future = loop.run_in_executor(
                 process_pool,
@@ -180,7 +189,7 @@ async def process_segments(
                 modality,
                 model_path,
                 model_conf,
-                device,
+                assigned_device,
             )
             preprocessed_path_future = loop.run_in_executor(
                 process_pool, preprocess_wrapper, segment_path
@@ -254,6 +263,9 @@ async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH)
             if DEVICE == "cuda" and torch.cuda.device_count()
             else 1
         )
+        max_workers = min(
+            max_workers, len(file_paths)
+        )  # for case where more gpus than file paths
 
         # 3. generate segment context and raw transcripts
         segment_results = await process_segments(
@@ -288,10 +300,10 @@ async def main(filename, overlap=0, segment_len=15, window_length=WINDOW_LENGTH)
             corrected_transcript = " ".join(corrected_transcript)
             print("Transcript prior to diarisation:", corrected_transcript)
         else:
-            print("No transcript available") # if no transcript, skip step 5
+            print("No transcript available")  # if no transcript, skip step 5
             if upload_task:
                 upload_task.cancel()
-                try: 
+                try:
                     await upload_task
                 except asyncio.CancelledError:
                     pass
