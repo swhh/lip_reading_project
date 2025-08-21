@@ -1,9 +1,97 @@
-# AI-Powered, Context-Based Lip Reading
+## AI‑Powered, Context‑Based Lip Reading
 
-## Summary
+Generate transcripts for videos without audio using a visual speech recognition model (Auto‑AVSR) enhanced by contextual reasoning from Google Gemini. The system combines lip movements, visual context, and conversation history to improve transcript accuracy.
 
-Project using the Google Gemini API and a forked version of the Auto-AVSR VSR model to lip-read people in videos based on, not only their lip movements, but their actions and the general video context.
+### How it works
+1. Split the input video into ~15s segments.
+2. For each segment (concurrently using asyncio):
+   - Preprocess to low‑res, low‑fps (optionally grayscale).
+   - Generate a raw lip‑reading transcript locally with Auto‑AVSR.
+   - Generate a concise visual summary using Gemini.
+3. Stitch segments with overlap handling and context windowing to form a finished, corrected transcript.
+4. Upload the full preprocessed video to Gemini Files API and feed the video and the final transcript to Gemini to finally add diarisation.
 
-##  How It Works
-To get a transcript for a video, you run main.py with Poetry providing the file name for a video stored locally in the content/videos folder. The video is then split into segments of around 15 seconds. These segments are then pre-processed in parallel and the preprocessed versions sent to Gemini asynchronously to produce video summaries. At the same time, raw transcripts are generated for the unprocessed segments locally with the Auto-AVSR VSR model. Finally, the raw transcripts, the pre-processed videos and the video summaries are sent to Gemini synchronously to produce the final, corrected transcript for the entire video. 
+### Prerequisites
+- **Python**: 3.9–3.12
+- **ffmpeg** (for MoviePy)
+  - macOS: `brew install ffmpeg`
+  - Linux: `sudo apt-get install ffmpeg`
+- Optional: **GPU** with CUDA for faster inference (falls back to CPU)
+- A Google Gemini API key: set `GEMINI_API_KEY`
+
+### Installation
+Using Poetry:
+```bash
+# Clone
+git clone <your-repo-url>.git
+cd lip_reading_project
+
+# Install deps
+poetry install
+
+# Install PyTorch stack manually (per project note)
+poetry run pip install torch==2.2.2 torchaudio==2.2.2 torchvision==0.17.2
+```
+
+### Model weights
+Place the Auto‑AVSR config and weights here:
+- `src/lip_reading_project/content/model/LRS3_V_WER19.1.json`
+- `src/lip_reading_project/content/model/LRS3_V_WER19.1_model.pth`
+
+Use your own trained weights or obtain compatible ones from the upstream Auto‑AVSR project.
+
+### Environment
+Set your Gemini API key:
+```bash
+export GEMINI_API_KEY="YOUR_API_KEY"
+```
+
+### Data layout
+- Put input videos in: `src/lip_reading_project/content/videos/`
+- Segments will be written to: `src/lip_reading_project/content/videos/video_segments/`
+- A preprocessed copy is created alongside the original with the prefix `preprocessed_`.
+
+### Usage
+From the project root:
+```bash
+# Basic
+poetry run python src/lip_reading_project/main.py <filename.mp4>
+
+# With segment overlap (seconds) to reduce word cuts across segments
+poetry run python src/lip_reading_project/main.py <filename.mp4> --overlap 2
+```
+Notes:
+- The CLI accepts `filename` (must exist in `content/videos/`) and `--overlap`.
+- Internals use defaults: segment length ≈ 15s, preprocessing width 300px, fps 10, grayscale on.
+
+### Output
+- Transcript (pre‑ and post‑diarization) is printed to stdout.
+- If diarization upload fails or is disabled, you’ll receive the corrected transcript without speaker labels.
+- Redirect to a file if desired:
+```bash
+poetry run python src/lip_reading_project/main.py sample.mp4 --overlap 2 > transcript.txt
+```
+
+### Troubleshooting
+- Missing API key: “Please set your GEMINI_API_KEY”
+  - Ensure `export GEMINI_API_KEY="..."` is in your shell/env.
+- Video not found: “Video file not found: content/videos/<file>”
+  - Place the file in `src/lip_reading_project/content/videos/`.
+- ffmpeg/MoviePy errors:
+  - Install ffmpeg and re-run. On macOS: `brew install ffmpeg`.
+- Slow/CPU only:
+  - Check CUDA availability; otherwise it will run on CPU, which will be really slow for the AVSR model.
+- Model files not found:
+  - Ensure the `.json` and `.pth` in `src/lip_reading_project/content/model/` match the expected names.
+
+
+
+### Acknowledgements
+- Auto‑AVSR: Lip‑reading Sentences Project
+- ESPnet: End‑to‑End Speech Processing Toolkit
+
+
+
+
+
 
