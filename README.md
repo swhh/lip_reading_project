@@ -4,12 +4,12 @@ Generate transcripts for videos without audio using a visual speech recognition 
 
 ### How it works
 1. Split the input video into ~15s segments.
-2. For each segment (concurrently using asyncio):
+2. For each segment (utilising concurrency with asyncio and parallelism with concurrent.futures where multiple GPUs available):
    - Preprocess to low‑res, low‑fps (optionally grayscale).
    - Generate a raw lip‑reading transcript locally with Auto‑AVSR.
    - Generate a concise visual summary using Gemini.
 3. Stitch segments with overlap handling and context windowing to form a finished, corrected transcript.
-4. Upload the full preprocessed video to Gemini Files API and feed the video and the final transcript to Gemini to finally add diarisation.
+4. Upload the full preprocessed video to Gemini Files API and feed the video and the final transcript to Gemini to finally diarise script.
 
 ### Prerequisites
 - **Python**: 3.9–3.12
@@ -23,7 +23,7 @@ Generate transcripts for videos without audio using a visual speech recognition 
 Using Poetry:
 ```bash
 # Clone
-git clone <your-repo-url>.git
+git clone lip_reading_project.git
 cd lip_reading_project
 
 # Install deps
@@ -65,8 +65,8 @@ Notes:
 - Internals use defaults: segment length ≈ 15s, preprocessing width 300px, fps 10, grayscale on.
 
 ### Output
-- Transcript (pre‑ and post‑diarization) is printed to stdout.
-- If diarization upload fails or is disabled, you’ll receive the corrected transcript without speaker labels.
+- Transcript (pre‑ and post‑diarisation) is printed to stdout.
+- If diarisation upload fails or is disabled, you’ll receive the corrected transcript without speaker labels.
 - Redirect to a file if desired:
 ```bash
 poetry run python src/lip_reading_project/main.py sample.mp4 --overlap 2 > transcript.txt
