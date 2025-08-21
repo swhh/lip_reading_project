@@ -24,7 +24,7 @@ Generate transcripts for videos without audio using a visual speech recognition 
 Using Poetry:
 ```bash
 # Clone
-git clone lip_reading_project.git
+git clone https://github.com/swhh/lip_reading_project.git
 cd lip_reading_project
 
 # Install deps
