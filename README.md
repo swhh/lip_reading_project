@@ -8,8 +8,9 @@ Generate transcripts for videos without audio using a visual speech recognition 
    - Preprocess to low‑res, low‑fps (optionally grayscale).
    - Generate a raw lip‑reading transcript locally with Auto‑AVSR.
    - Generate a concise visual summary using Gemini.
-3. Stitch segments with overlap handling and context windowing to form a finished, corrected transcript.
-4. Upload the full preprocessed video to Gemini Files API and feed the video and the final transcript to Gemini to finally diarise script.
+4. Send sequentially the raw transcript segments, the video segment summaries and the windowed context_history and corrected_transcript strings for previous segments to Gemini to produce final, corrected transcript segments.
+5. Stitch segments with overlap handling to form a finished, corrected transcript for the entire video.
+6. Having already updated the full preprocessed video to Gemini Files API, once it is ready on Google's side, feed the video and the final transcript to Gemini to diarise transcript.
 
 ### Prerequisites
 - **Python**: 3.9–3.12
