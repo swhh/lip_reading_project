@@ -170,8 +170,8 @@ def generate_final_transcript(all_video_segment_info, window_length, overlap=0):
 async def process_segments(
     file_paths, max_workers, modality, model_path, model_conf, device
 ):
-    if device == "cuda" and torch.cuda.device_count():
-        device_names = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
+    if device == "cuda" and torch.cuda.device_count(): 
+        device_names = [f"cuda:{i}" for i in range(min(max_workers,torch.cuda.device_count()))]
     else:
         device_names = [DEVICE]
     device_cycle = itertools.cycle(device_names)  # create round robin for gpus
@@ -180,7 +180,7 @@ async def process_segments(
         loop = asyncio.get_running_loop()
 
         async def process_one_segment(segment_path: str):
-            assigned_device = next(device_cycle)
+            assigned_device = next(device_cycle) # assign GPU to task
             # Schedule the two CPU-bound tasks.
             transcript_future = loop.run_in_executor(
                 process_pool,
@@ -363,8 +363,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("filename")
     parser.add_argument("--overlap", type=int, default=0)
+    parser.add_argument("--segment_len", type=int, default=15)
     args = parser.parse_args()
     filename = args.filename
     overlap = args.overlap
+    segment_len = args.segment_len
 
-    asyncio.run(main(filename, overlap=overlap))
+    asyncio.run(main(filename, overlap=overlap, segment_len=segment_len))

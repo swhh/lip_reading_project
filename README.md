@@ -62,7 +62,7 @@ poetry run python src/lip_reading_project/main.py <filename.mp4>
 poetry run python src/lip_reading_project/main.py <filename.mp4> --overlap 2
 ```
 Notes:
-- The CLI accepts `filename` (must exist in `content/videos/`) and `--overlap`.
+- The CLI accepts `filename` (must exist in `content/videos/`),  `--overlap` and `--segment_len`.
 - Internals use defaults: segment length ≈ 15s, preprocessing width 300px, fps 10, grayscale on.
 
 ### Output
