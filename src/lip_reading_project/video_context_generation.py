@@ -12,7 +12,7 @@ async def summarise_video(video_path: str):
     """Generate summary of video clip with Gemini"""
     if not GEMINI_API_KEY:
         raise ValueError("Please set your GEMINI_API_KEY")
-    
+
     client = genai.Client(api_key=GEMINI_API_KEY)
     async with aiofiles.open(video_path, mode="rb") as f:
         video_bytes = await f.read()

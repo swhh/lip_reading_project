@@ -109,9 +109,9 @@ def produce_global_diarised_transcript(
         Attribute each utterance to stable speaker labels [S1], [S2], ... consistently across the entire video.
 
         Guidelines:
-        - Use labels like [S1], [S2], etc. (no names).
+        - Use labels like [S1], [S2], etc. (no names). Increment the label number only when there is a new speaker whose utterances are being transcribed.
         - Keep labels consistent throughout the whole transcript.
-        - Preserve the words exactly; only add labels (minimal punctuation allowed).
+        - Preserve the words unless the provided text makes no sense; only add labels (minimal punctuation allowed).
         - Output format: lines like [S1]: <utterance>
         - Only add the next label when the speaker changes e.g. S1: some text newline S2: some other text
 
@@ -154,4 +154,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

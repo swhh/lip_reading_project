@@ -12,8 +12,9 @@ MODEL_ID = "LRS3_V_WER19.1"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 modality = "video"
-model_conf = f"content/model/{MODEL_ID}.json"
-model_path = f"content/model/{MODEL_ID}_model.pth"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+model_conf = os.path.join(BASE_DIR, "content", "model", f"{MODEL_ID}.json")
+model_path = os.path.join(BASE_DIR, "content", "model", f"{MODEL_ID}_model.pth")
 
 
 class InferencePipeline(torch.nn.Module):

@@ -89,7 +89,7 @@ poetry run python src/lip_reading_project/main.py sample.mp4 --overlap 2 > trans
 
 
 ### Acknowledgements
-- Auto‑AVSR: Lip‑reading Sentences Project
+- Auto‑AVSR: Lip‑reading Sentences Project. The pipelines module is a forked version of their GitHub project.
 - ESPnet: End‑to‑End Speech Processing Toolkit
 
 
