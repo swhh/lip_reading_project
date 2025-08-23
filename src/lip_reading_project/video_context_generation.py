@@ -8,12 +8,15 @@ model_id = "gemini-2.0-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
-async def summarise_video(video_path: str):
-    """Generate summary of video clip with Gemini"""
+def _client():
     if not GEMINI_API_KEY:
         raise ValueError("Please set your GEMINI_API_KEY")
+    return genai.Client(api_key=GEMINI_API_KEY)
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+
+async def summarise_video(video_path: str):
+    """Generate summary of video clip with Gemini"""
+    client = _client()
     async with aiofiles.open(video_path, mode="rb") as f:
         video_bytes = await f.read()
 
