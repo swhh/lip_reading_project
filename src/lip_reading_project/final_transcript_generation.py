@@ -51,6 +51,9 @@ def produce_transcript(
                 **Instructions:**
                 Synthesise all available information—the previous context, the summary, the noisy transcript, and MOST IMPORTANTLY, the visual evidence from the video itself—to produce the most accurate possible transcript for the current segment. 
                 Provide ONLY the corrected transcript.
+                **Note:**
+                The specialized AI model produces repetitive nonsense where there is no discernible speech. 
+                If there is no one talking but there is raw transcript text, replace the erroneous text with '(no speech)' or something similar. 
                 """
 
     response = client.models.generate_content(
