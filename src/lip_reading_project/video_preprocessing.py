@@ -27,9 +27,6 @@ def preprocess_video(
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found at: {input_path}")
     if os.path.exists(output_path):
-        print(
-            f"{output_path} already exists. No need to preprocess video at {input_path}."
-        )
         return output_path
 
     cap = cv2.VideoCapture(input_path)
@@ -108,8 +105,6 @@ def split_video(
     duration = clip.duration
     num_segments = math.ceil(duration / segment_length_sec)
 
-    print(f"Video duration: {duration:.2f}s. Splitting into {num_segments} segments.")
-
     segment_paths = []
     for i in range(num_segments):
         start_time = i * segment_length_sec - overlap if i else 0
@@ -121,7 +116,6 @@ def split_video(
         base_name = os.path.splitext(os.path.basename(video_path))[0]
         output_path = os.path.join(output_dir, f"{base_name}_segment_{i+1:03d}.mp4")
         if os.path.exists(output_path):  # check if already created
-            print(f"Segment at {output_path} already exists.")
             segment_paths.append(output_path)
             continue
 
